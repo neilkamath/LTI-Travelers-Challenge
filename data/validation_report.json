@@ -1,0 +1,10 @@
+{
+  "total_points": 1065,
+  "points_predicted": 82,
+  "exact_matches": 31,
+  "accuracy_percentage": 37.80487804878049,
+  "severity_difference_stats": {
+    "mean": 0.9135802469135802,
+    "max": 4.0
+  }
+}
