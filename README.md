@@ -1,5 +1,5 @@
 # LTI-Travelers-Challenge
-Quantum Computing to Optimizine Claim Handler Staffing for Target
+Quantum Computing to Optimize Claim Handler Staffing for Target
 Resolution, YQuantum 2025
 
 This repository contains quantum computing applications for data analysis, specifically focused on clustering and optimization problems using tornado severity data.
