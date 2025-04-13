@@ -31,3 +31,15 @@ Helper functions that use quantum computing for geo-temporal resource allocation
 - **Quantinuum integration**: Connects directly to Quantinuum's quantum hardware (H1-2E) for solving complex optimization problems
 
 - **Hybrid quantum-classical approach**: Uses QAOA (Quantum Approximate Optimization Algorithm) combined with classical pre-processing
+
+## Quantum Pathfinding (`quantum-pathfinding/`)
+
+Optimized route planning using quantum TSP solver:
+
+- **Handler route optimization**: Determines efficient travel paths for insurance claim handlers based on claim locations
+
+- **Nearest-neighbor heuristics**: Implements pathfinding algorithms to minimize travel distances and productivity loss
+
+- **Performance metrics**: Calculates travel time, productivity impact, and cost penalties for different handler assignments
+
+- **Visual analytics**: Provides geospatial route visualization and comparative performance charts for route assessment
