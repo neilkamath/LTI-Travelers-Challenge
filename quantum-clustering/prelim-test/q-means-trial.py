@@ -105,7 +105,7 @@ for idx in selected:
         popup=f"Quantum-selected centroid (Severity: {int(df.iloc[idx]['severity'])})"
     ).add_to(m)
 
-m.save("qmeans_map.html")
+m.save("qmeans_trial_map.html")
 
 # Print some statistics
 print("\nQuantum-selected centroids:")

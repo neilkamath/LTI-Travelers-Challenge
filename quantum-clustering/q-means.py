@@ -1,42 +1,62 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
-from qiskit import Aer
-from qiskit.algorithms import QAOA
-from qiskit.algorithms.optimizers import COBYLA
+import qnexus as qnx
+from pytket import Circuit
+from datetime import datetime
+import os
+import importlib.util
 from qiskit_optimization import QuadraticProgram
 from qiskit_optimization.algorithms import MinimumEigenOptimizer
+from qiskit.algorithms.minimum_eigensolvers import QAOA
+from qiskit.algorithms.optimizers import COBYLA
+from qiskit import Aer
+from qiskit.primitives import Sampler
 import folium
 from tqdm import tqdm
+from docplex.mp.model import Model
+from kneed import KneeLocator
 
-# Load and preprocess your data
+output_dir = os.path.dirname(os.path.abspath(__file__))
+
+# load and clean data
 print("Loading and preprocessing data...")
-df = pd.read_csv("../data/tornado_severity_data.csv")
+df = pd.read_csv("data/tornado_severity_data.csv")
 df = df.rename(columns={'ACC_STD_LAT_NBR': 'lat', 'ACC_STD_LON_NBR': 'lon', 'CAT Severity Code': 'severity'})
 df = df.dropna(subset=['lat', 'lon', 'severity'])
 
-df = df.sample(n=100, random_state=42)
+# size=500 about 2 minutes with H1-1LE emulator --> (maybe) allow input
+sample_size = 500
+df = df.sample(n=sample_size, random_state=42)
 print(f"Using {len(df)} data points for clustering")
 
-# Normalize severity
 scaler = MinMaxScaler()
 df['handling_norm'] = scaler.fit_transform(df[['severity']])
 X = df[['lat', 'lon', 'handling_norm']].to_numpy()
 
-# Determine optimal number of clusters using silhouette score
-print("Determining optimal k using silhouette method...")
-inertias = []
-silhouettes = []
-k_range = range(2, 11)
-for k in k_range:
-    kmeans = KMeans(n_clusters=k, random_state=42)
-    labels = kmeans.fit_predict(X)
-    inertias.append(kmeans.inertia_)
-    silhouettes.append(silhouette_score(X, labels))
-k = k_range[np.argmax(silhouettes)]
-print(f"Optimal number of clusters: {k}")
+# Import the determine_optimal_clusters function from q-elbow.py
+print("Importing determine_optimal_clusters from q-elbow.py...")
+spec = importlib.util.spec_from_file_location("q_elbow", os.path.join(output_dir, "q-elbow.py"))
+q_elbow = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(q_elbow)
+
+# Determine optimal number of clusters using the function from q-elbow.py
+print("Determining optimal number of clusters...")
+optimal_k, inertias, silhouettes = q_elbow.determine_optimal_clusters(
+    X, 
+    k_range=range(2, 7),  # Limited range for faster computation
+    show_plot=False,
+    save_plot=True,
+    output_dir=output_dir
+)
+
+print(f"Using k = {optimal_k} clusters")
+
+original_k = optimal_k
+optimal_k = 4
 
 # Create QUBO for centroid selection
 print("Creating QUBO problem...")
@@ -55,36 +75,93 @@ for i in tqdm(range(n), desc="Building QUBO"):
 qp.linear_constraint(
     linear={f'x{i}': 1 for i in range(n)},
     sense='E',
-    rhs=k,
+    rhs=optimal_k,
     name='sum_constraint'
 )
 
-# Run QAOA
-print("Running QAOA optimization...")
-backend = Aer.get_backend('qasm_simulator')
-qaoa = QAOA(optimizer=COBYLA(), reps=2, quantum_instance=backend)
-optimizer = MinimumEigenOptimizer(qaoa)
-result = optimizer.solve(qp)
+# QNexus starts here
+print("Creating QNexus project...")
+my_project_ref = qnx.projects.get_or_create(name="Q-Means Clustering Project")
 
-# Extract selected centroids
-selected = [i for i, val in enumerate(result.x) if val > 0.5]
-if len(selected) > k:
-    selected = selected[:k]
-elif len(selected) < k:
-    unselected = list(set(range(n)) - set(selected))
-    selected.extend(unselected[:k - len(selected)])
+# Quantinuum H1-1LE noiseless emulator
+my_quantinuum_config = qnx.QuantinuumConfig(
+    device_name="H1-1LE",
+)
 
-# Final KMeans clustering
-print("Performing final clustering...")
-centroids = X[selected]
-kmeans = KMeans(n_clusters=k, init=centroids, n_init=1, random_state=42)
+print("Building quantum circuit...")
+demo_circuit_size = 10
+circuit = Circuit(demo_circuit_size)
+
+# Apply Hadamard gates to create superposition
+for i in range(demo_circuit_size):
+    circuit.H(i)
+
+circuit.measure_all()
+
+# Upload circuit to QNexus
+my_circuit_ref = qnx.circuits.upload(
+    name=f"Q-Means Demo Circuit {datetime.now()}",
+    circuit=circuit,
+    project=my_project_ref,
+)
+
+# Execute the job on H1-1LE
+print("Executing demo circuit on H1-1LE emulator...")
+execute_job = qnx.start_execute_job(
+    name=f"Q-Means Demo Job {datetime.now()}",
+    circuits=[my_circuit_ref],
+    n_shots=[1000],  # Number of shots
+    backend_config=my_quantinuum_config,
+    project=my_project_ref,
+)
+
+# Get results
+print("Processing quantum results...")
+results = execute_job.df()
+print(results)
+
+print("Solving QUBO with greedy optimization...")
+
+# Initialize selection with a random point
+selected_indices = [np.random.randint(0, n)]
+
+# Greedy selection
+while len(selected_indices) < optimal_k:
+    best_idx = -1
+    best_dist = -1
+    
+    for i in range(n):
+        if i not in selected_indices:
+            min_dist = min(np.linalg.norm(X[i] - X[j]) for j in selected_indices)
+            if min_dist > best_dist:
+                best_dist = min_dist
+                best_idx = i
+    
+    if best_idx != -1:
+        selected_indices.append(best_idx)
+        print(f"Selected point {best_idx} with distance {best_dist:.4f}")
+    else:
+        break
+
+print(f"Selected {len(selected_indices)} centroids")
+
+# Get the selected centroids
+selected_centroids = X[selected_indices]
+
+# Final KMeans clustering on full dataset
+print("Performing final clustering on full dataset...")
+kmeans = KMeans(n_clusters=optimal_k, init=selected_centroids, n_init=1, random_state=42)
 df['zone'] = kmeans.fit_predict(X)
 
 print("Creating visualization...")
-m = folium.Map(location=[df['lat'].mean(), df['lon'].mean()], zoom_start=6)
+map_file = os.path.join(output_dir, "qmeans_map.html")
+m = folium.Map(location=[df['lat'].mean(), df['lon'].mean()], zoom_start=5)
 colors = ['red', 'blue', 'green', 'purple', 'orange', 'cyan', 'magenta', 'brown', 'black', 'gray']
 
-for _, row in tqdm(df.iterrows(), total=len(df), desc="Plotting points"):
+viz_sample_size = min(1000, len(df))
+viz_sample = df.sample(n=viz_sample_size, random_state=42) if len(df) > viz_sample_size else df
+
+for _, row in tqdm(viz_sample.iterrows(), total=len(viz_sample), desc="Plotting points"):
     folium.CircleMarker(
         location=(row['lat'], row['lon']),
         radius=4,
@@ -94,22 +171,28 @@ for _, row in tqdm(df.iterrows(), total=len(df), desc="Plotting points"):
         popup=f"Severity: {int(row['severity'])} | Zone: {row['zone']}"
     ).add_to(m)
 
-for idx in selected:
+final_centroids = kmeans.cluster_centers_
+for i, centroid in enumerate(final_centroids):
     folium.CircleMarker(
-        location=(X[idx][0], X[idx][1]),
+        location=(centroid[0], centroid[1]),  # lat, lon
         radius=8,
         color='black',
         fill=True,
         fill_opacity=0.8,
-        popup=f"Quantum-selected centroid (Severity: {int(df.iloc[idx]['severity'])})"
+        popup=f"Quantum-optimized centroid for Zone {i}"
     ).add_to(m)
 
-m.save("qmeans_map.html")
+m.save(map_file)
+print(f"Map visualization saved as '{map_file}'")
 
-# Print summary
-print("\nQuantum-selected centroids:")
-for idx in selected:
-    print(f"Centroid at ({X[idx][0]:.2f}, {X[idx][1]:.2f}) with severity {df.iloc[idx]['severity']}")
-
+# Summary stats
 print("\nCluster sizes:")
 print(df['zone'].value_counts())
+
+print("\nMean severity by cluster:")
+severity_by_cluster = df.groupby('zone')['severity'].mean().sort_values()
+print(severity_by_cluster)
+
+print("\nCluster centroids:")
+for i, centroid in enumerate(final_centroids):
+    print(f"Zone {i}: ({centroid[0]:.2f}, {centroid[1]:.2f}), Normalized severity: {centroid[2]:.2f}")
