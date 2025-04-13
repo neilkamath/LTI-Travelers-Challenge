@@ -6,7 +6,7 @@ This repository contains quantum computing applications for data analysis, speci
 
 ## Quantum Clustering (`quantum-clustering/`)
 
-This folder contains implementations of quantum-enhanced clustering algorithms:
+Implementations of quantum-enhanced clustering algorithms:
 
 - **Q-means**: A quantum-enhanced version of k-means clustering that uses quantum optimization to select optimal centroids
 - **Elbow method determination**: Algorithms to determine the optimal number of clusters using both classical and quantum methods
@@ -16,8 +16,18 @@ The implementation leverages Qiskit for quantum circuit design and QNexus for ex
 
 ## Quantum Constraint Optimization (`quantum-constraint-graph/`)
 
-This folder demonstrates quantum approaches to constraint optimization problems:
+Quantum approach to constraint optimization problem:
 
 - **Claims assignment optimization**: Optimally assigns insurance claims to handlers based on severity and geographical constraints
 - **Penalty minimization**: Minimizes penalties based on handler skill level and geographical zones
 - **Visualization tools**: Includes bar charts for penalty comparison and interactive maps showing optimized assignments
+
+## Geo-Temporal Load Balancing (`geo-temp-load-balancing/`)
+
+Helper functions that use quantum computing for geo-temporal resource allocation optimization:
+
+- **QUBO-based optimization**: Formulates geo-temporal load balancing as a Quadratic Unconstrained Binary Optimization problem
+
+- **Quantinuum integration**: Connects directly to Quantinuum's quantum hardware (H1-2E) for solving complex optimization problems
+
+- **Hybrid quantum-classical approach**: Uses QAOA (Quantum Approximate Optimization Algorithm) combined with classical pre-processing
