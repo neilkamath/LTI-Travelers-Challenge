@@ -1,0 +1,21 @@
+Claim ID,Severity,Cluster,Assigned Handler,Handler Skill,Penalty
+1,4,0,"H1 (Skill 4, Zone 0)",4,0.0
+2,3,0,"H1 (Skill 4, Zone 0)",4,1.0
+3,3,2,"H3 (Skill 3, Zone 1)",3,5.0
+4,3,0,"H1 (Skill 4, Zone 0)",4,1.0
+5,3,0,"H1 (Skill 4, Zone 0)",4,1.0
+6,2,0,"H2 (Skill 2, Zone 0)",2,0.0
+7,3,0,"H1 (Skill 4, Zone 0)",4,1.0
+8,3,0,"H1 (Skill 4, Zone 0)",4,1.0
+9,3,0,"H1 (Skill 4, Zone 0)",4,1.0
+10,3,2,"H3 (Skill 3, Zone 1)",3,5.0
+11,3,0,"H1 (Skill 4, Zone 0)",4,1.0
+12,5,0,"H1 (Skill 4, Zone 0)",4,10.0
+13,1,0,"H2 (Skill 2, Zone 0)",2,1.0
+14,4,2,"H1 (Skill 4, Zone 0)",4,5.0
+15,4,1,"H1 (Skill 4, Zone 0)",4,5.0
+16,3,0,"H1 (Skill 4, Zone 0)",4,1.0
+17,3,0,"H1 (Skill 4, Zone 0)",4,1.0
+18,3,0,"H1 (Skill 4, Zone 0)",4,1.0
+19,3,0,"H1 (Skill 4, Zone 0)",4,1.0
+20,5,0,"H1 (Skill 4, Zone 0)",4,10.0
